@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { parse } from 'tiny-pinyin';
 import { Position } from 'vscode';
 import { Mode } from '../../../mode/mode';
 import { configuration } from './../../../configuration/configuration';
@@ -112,6 +113,44 @@ export class EasyMotion implements IEasyMotion {
   }
 
   /**
+   * 核心修改：判断文本中的字符是否匹配搜索字符（支持中文拼音首字母）
+   */
+  private isPinyinMatch(line: string, index: number, search: string): boolean {
+    // 如果剩余长度不足，直接返回 false
+    if (index + search.length > line.length) {
+      return false;
+    }
+
+    for (let i = 0; i < search.length; i++) {
+      const lineChar = line[index + i];
+      const searchChar = search[i];
+
+      // 1. 尝试直接字符匹配 (忽略大小写)
+      if (lineChar.toLowerCase() === searchChar.toLowerCase()) {
+        continue;
+      }
+
+      // 2. 尝试中文拼音首字母匹配
+      if (/[\u4e00-\u9fa5]/.test(lineChar)) {
+        const pinyinArr = parse(lineChar); // 获取该字符的所有读音（多音字）
+        // 检查是否有任意一个读音的首字母匹配搜索字符
+        const hasPinyinMatch = pinyinArr.some((p) => {
+          return p.target && p.target.toLowerCase().startsWith(searchChar.toLowerCase());
+        });
+
+        if (hasPinyinMatch) {
+          continue;
+        }
+      }
+
+      // 如果既不匹配字符也不匹配拼音，则失败
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Search and sort using the index of a match compared to the index of position (usually the cursor)
    */
   public sortedSearch(
@@ -120,11 +159,6 @@ export class EasyMotion implements IEasyMotion {
     search: string | RegExp = '',
     options: SearchOptions = {},
   ): Match[] {
-    const regex =
-      typeof search === 'string'
-        ? new RegExp(search.replace(EasyMotion.specialCharactersRegex, '\\$&'), 'g')
-        : search;
-
     const matches: Match[] = [];
 
     // Cursor index refers to the index of the marker that is on or to the right of the cursor
@@ -136,41 +170,104 @@ export class EasyMotion implements IEasyMotion {
     const lineMin = options.min ? Math.max(options.min.line, 0) : 0;
     const lineMax = options.max ? Math.min(options.max.line + 1, lineCount) : lineCount;
 
-    outer: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
-      const line = document.lineAt(lineIdx).text;
-      let result = regex.exec(line);
+    // ------------------------------------------------------------------------
+    // 修改开始：区分 String 和 RegExp 的处理逻辑
+    // ------------------------------------------------------------------------
+    if (typeof search === 'string') {
+      // === 拼音/字符串搜索模式 ===
+      const searchStr = search;
+      if (searchStr.length > 0) {
+        outerLoopString: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
+          const line = document.lineAt(lineIdx).text;
+          let charIdx = 0;
 
-      while (result) {
-        if (matches.length >= 1000) {
-          break outer;
-        } else {
-          const pos = new Position(lineIdx, result.index);
-
-          // Check if match is within bounds
-          if (
-            (options.min && pos.isBefore(options.min)) ||
-            (options.max && pos.isAfter(options.max)) ||
-            Math.abs(pos.line - position.line) > 100
-          ) {
-            // Stop searching after 100 lines in both directions
-            result = regex.exec(line);
-          } else {
-            // Update cursor index to the marker on the right side of the cursor
-            if (!prevMatch || prevMatch.position.isBefore(position)) {
-              cursorIndex = matches.length;
+          while (charIdx < line.length) {
+            if (matches.length >= 1000) {
+              break outerLoopString;
             }
-            // Matches on the cursor position should be ignored
-            if (pos.isEqual(position)) {
+
+            // 使用自定义的拼音匹配逻辑
+            if (this.isPinyinMatch(line, charIdx, searchStr)) {
+              const pos = new Position(lineIdx, charIdx);
+
+              // Check if match is within bounds (逻辑与下方正则部分保持一致)
+              if (
+                (options.min && pos.isBefore(options.min)) ||
+                (options.max && pos.isAfter(options.max)) ||
+                Math.abs(pos.line - position.line) > 100
+              ) {
+                // 即使匹配了但不在范围内，也要继续向后搜索
+                // 移动索引：通常移动1位，或者移动搜索词长度（非重叠）
+                // 这里为了尽可能多匹配，移动1位即可，或者为了性能移动 searchStr.length
+                charIdx++;
+              } else {
+                // Update cursor index
+                if (!prevMatch || prevMatch.position.isBefore(position)) {
+                  cursorIndex = matches.length;
+                }
+                // Matches on the cursor position should be ignored
+                if (pos.isEqual(position)) {
+                  charIdx++;
+                } else {
+                  // 截取匹配到的原始文本（可能是中文）
+                  const matchedText = line.substr(charIdx, searchStr.length);
+                  prevMatch = new Match(pos, matchedText, matches.length);
+                  matches.push(prevMatch);
+
+                  // 找到匹配后，跳过已匹配的长度，避免重叠匹配（例如 "zz" 匹配 "zzz" 的情况）
+                  // 如果希望重叠匹配，改为 charIdx++
+                  charIdx += searchStr.length;
+                }
+              }
+            } else {
+              charIdx++;
+            }
+          }
+        }
+      }
+    } else {
+      // === 原有的正则搜索模式 (保持不变) ===
+      const regex = search; // 此时 search 必定是 RegExp
+
+      outerLoopRegex: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
+        const line = document.lineAt(lineIdx).text;
+        let result = regex.exec(line);
+
+        while (result) {
+          if (matches.length >= 1000) {
+            break outerLoopRegex;
+          } else {
+            const pos = new Position(lineIdx, result.index);
+
+            // Check if match is within bounds
+            if (
+              (options.min && pos.isBefore(options.min)) ||
+              (options.max && pos.isAfter(options.max)) ||
+              Math.abs(pos.line - position.line) > 100
+            ) {
+              // Stop searching after 100 lines in both directions
               result = regex.exec(line);
             } else {
-              prevMatch = new Match(pos, result[0], matches.length);
-              matches.push(prevMatch);
-              result = regex.exec(line);
+              // Update cursor index to the marker on the right side of the cursor
+              if (!prevMatch || prevMatch.position.isBefore(position)) {
+                cursorIndex = matches.length;
+              }
+              // Matches on the cursor position should be ignored
+              if (pos.isEqual(position)) {
+                result = regex.exec(line);
+              } else {
+                prevMatch = new Match(pos, result[0], matches.length);
+                matches.push(prevMatch);
+                result = regex.exec(line);
+              }
             }
           }
         }
       }
     }
+    // ------------------------------------------------------------------------
+    // 修改结束
+    // ------------------------------------------------------------------------
 
     // Sort by the index distance from the cursor index
     matches.sort((a: Match, b: Match): number => {

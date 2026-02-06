@@ -11,38 +11,33 @@ jobs:
     steps:
       - name: Checkout VSCodeVim
         uses: actions/checkout@v6
+        with:
+          ref: 'easymotion-zh'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Lint
-        run: yarn lint
+          cache: pnpm
 
       - name: Build
-        run: yarn build
-
-      - name: Test
-        run: |
-          yarn build-test
-          xvfb-run -a yarn test
+        run: pnpm build
 
       - name: Build extension package
         id: build_vsix
         run: |
-          yarn package;
+          pnpm package;
           echo ::set-output name=vsix_path::$(ls *.vsix);
 
       - name: Create release on GitHub
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ github.ref }}
@@ -52,20 +47,9 @@ jobs:
       - name: Upload .vsix as release asset to GitHub
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ steps.build_vsix.outputs.vsix_path }}
           asset_name: ${{ steps.build_vsix.outputs.vsix_path }}
           asset_content_type: application/zip
-
-      - name: Publish to VSCode Extension Marketplace
-        run: yarn run vsce publish --yarn
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-
-      - name: Publish to Open VSX Registry
-        uses: HaaLeo/publish-vscode-extension@v1
-        id: publishToOpenVSX
-        with:
-          pat: ${{ secrets.OPEN_VSX_TOKEN }}

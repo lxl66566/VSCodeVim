@@ -1,3 +1,13 @@
+# VSCodeVim with EasyMotion Chinese search support
+
+这是一个 VSCodeVim 的 fork，其集成的 EasyMotion 插件现在支持中文搜索（拼音首字母）。
+
+从 Release 下载 VSXI 安装即可。
+
+以下为原始 README。
+
+---
+
 <h2 align="center"><img src="https://raw.githubusercontent.com/VSCodeVim/Vim/master/images/icon.png" height="128"><br>VSCodeVim</h2>
 <p align="center"><strong>Vim emulation for Visual Studio Code</strong></p>
 

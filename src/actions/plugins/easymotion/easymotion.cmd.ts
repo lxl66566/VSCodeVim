@@ -124,13 +124,14 @@ function getMatchesForString(
         return vimState.easyMotion.sortedSearch(vimState.document, position, searchString, options);
       }
 
-      const ignorecase =
-        configuration.ignorecase && !(configuration.smartcase && /[A-Z]/.test(searchString));
-      const regexFlags = ignorecase ? 'gi' : 'g';
+      // const ignorecase =
+      //   configuration.ignorecase && !(configuration.smartcase && /[A-Z]/.test(searchString));
+      // const regexFlags = ignorecase ? 'gi' : 'g';
       return vimState.easyMotion.sortedSearch(
         vimState.document,
         position,
-        new RegExp(searchString, regexFlags),
+        // new RegExp(searchString, regexFlags),
+        searchString,
         options,
       );
   }
