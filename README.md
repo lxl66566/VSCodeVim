@@ -1,3 +1,17 @@
+# VSCodeVim fork
+
+这是一个 [VSCode/Vim](https://github.com/VSCodeVim/Vim) 的 fork，相较于原版有如下改进：
+
+- 其集成的 EasyMotion 插件现在支持中文搜索（使用拼音首字母；代价是搜索不再支持忽略大小写）：[#7745](https://github.com/VSCodeVim/Vim/pull/7745)
+- 修复中文输入法无法替换选区的 bug：[#3952](https://github.com/VSCodeVim/Vim/issues/3952)、[#10100](https://github.com/VSCodeVim/Vim/issues/10100)
+- 修复多光标下输入多个字符时，只有一个光标能够正确输入的 bug：[#9868](https://github.com/VSCodeVim/Vim/pull/9868)
+
+直接搜索 [vim-lxl66566](https://marketplace.visualstudio.com/items?itemName=lxl66566.vim-lxl66566)；或者从 [Release](https://github.com/lxl66566/VSCodeVim/releases) 下载 VSXI 安装即可。
+
+以下为项目原始 README。
+
+---
+
 <h2 align="center"><img src="https://raw.githubusercontent.com/VSCodeVim/Vim/master/images/icon.png" height="128"><br>VSCodeVim</h2>
 <p align="center"><strong>Vim emulation for Visual Studio Code</strong></p>
 

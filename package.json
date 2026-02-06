@@ -1,13 +1,10 @@
 {
-  "name": "vim",
-  "displayName": "Vim",
-  "description": "Vim emulation for Visual Studio Code",
+  "name": "vim-lxl66566",
+  "displayName": "Vim-lxl66566",
+  "description": "VSCodeVim fork with Chinese optimize",
   "icon": "images/icon.png",
-  "version": "1.32.4",
-  "publisher": "vscodevim",
-  "sponsor": {
-    "url": "https://github.com/sponsors/J-Fields"
-  },
+  "version": "1.32.5",
+  "publisher": "lxl66566",
   "galleryBanner": {
     "color": "#e3f4ff",
     "theme": "light"
@@ -16,15 +13,17 @@
   "keywords": [
     "vim",
     "vi",
-    "vscodevim"
+    "vscodevim",
+    "Chinese",
+    "lxl66566"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/VSCodeVim/Vim.git"
+    "url": "https://github.com/lxl66566/VSCodeVim.git"
   },
-  "homepage": "https://github.com/VSCodeVim/Vim",
+  "homepage": "https://github.com/lxl66566/VSCodeVim",
   "bugs": {
-    "url": "https://github.com/VSCodeVim/Vim/issues"
+    "url": "https://github.com/lxl66566/VSCodeVim/issues"
   },
   "engines": {
     "vscode": "^1.74.0"
@@ -41,7 +40,7 @@
     "onStartupFinished",
     "onCommand:type"
   ],
-  "qna": "https://github.com/VSCodeVim/Vim/discussions",
+  "qna": "https://github.com/lxl66566/VSCodeVim/discussions",
   "main": "./out/extension",
   "browser": "./out/extensionWeb",
   "capabilities": {
