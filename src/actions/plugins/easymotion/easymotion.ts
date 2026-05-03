@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { parse } from 'tiny-pinyin';
 import { Position } from 'vscode';
 import { Mode } from '../../../mode/mode';
 import { configuration } from './../../../configuration/configuration';
@@ -111,6 +112,59 @@ export class EasyMotion implements IEasyMotion {
     return markers.filter((marker) => marker.name.startsWith(nail));
   }
 
+  private static pinyinCache = new Map<string, string[]>();
+
+  private getPinyinPrefixes(char: string): string[] {
+    let cached = EasyMotion.pinyinCache.get(char);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    cached = parse(char)
+      .filter((t): t is typeof t & { target: string } => t.type === 2 && t.target !== null)
+      .map((t) => t.target);
+    EasyMotion.pinyinCache.set(char, cached);
+    return cached;
+  }
+
+  private static readonly cjkRegex = /[\u4e00-\u9fa5]/;
+
+  private isPinyinMatch(
+    line: string,
+    index: number,
+    search: string,
+    ignorecase: boolean,
+    pinyin: boolean,
+  ): number {
+    if (index + search.length > line.length) {
+      return 0;
+    }
+
+    for (let i = 0; i < search.length; i++) {
+      const lineChar = line[index + i];
+      const searchChar = search[i];
+
+      if (
+        ignorecase ? lineChar.toLowerCase() === searchChar.toLowerCase() : lineChar === searchChar
+      ) {
+        continue;
+      }
+
+      if (pinyin && EasyMotion.cjkRegex.test(lineChar)) {
+        const pinyins = this.getPinyinPrefixes(lineChar);
+
+        const searchUpper = searchChar.toUpperCase();
+        if (pinyins.some((py) => py.startsWith(searchUpper))) {
+          continue;
+        }
+      }
+
+      return 0;
+    }
+
+    return search.length;
+  }
+
   /**
    * Search and sort using the index of a match compared to the index of position (usually the cursor)
    */
@@ -120,11 +174,6 @@ export class EasyMotion implements IEasyMotion {
     search: string | RegExp = '',
     options: SearchOptions = {},
   ): Match[] {
-    const regex =
-      typeof search === 'string'
-        ? new RegExp(search.replace(EasyMotion.specialCharactersRegex, '\\$&'), 'g')
-        : search;
-
     const matches: Match[] = [];
 
     // Cursor index refers to the index of the marker that is on or to the right of the cursor
@@ -136,36 +185,90 @@ export class EasyMotion implements IEasyMotion {
     const lineMin = options.min ? Math.max(options.min.line, 0) : 0;
     const lineMax = options.max ? Math.min(options.max.line + 1, lineCount) : lineCount;
 
-    outer: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
-      const line = document.lineAt(lineIdx).text;
-      let result = regex.exec(line);
+    if (typeof search === 'string') {
+      const searchStr = search;
+      if (searchStr.length > 0) {
+        outerLoopString: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
+          const line = document.lineAt(lineIdx).text;
+          let charIdx = 0;
 
-      while (result) {
-        if (matches.length >= 1000) {
-          break outer;
-        } else {
-          const pos = new Position(lineIdx, result.index);
-
-          // Check if match is within bounds
-          if (
-            (options.min && pos.isBefore(options.min)) ||
-            (options.max && pos.isAfter(options.max)) ||
-            Math.abs(pos.line - position.line) > 100
-          ) {
-            // Stop searching after 100 lines in both directions
-            result = regex.exec(line);
-          } else {
-            // Update cursor index to the marker on the right side of the cursor
-            if (!prevMatch || prevMatch.position.isBefore(position)) {
-              cursorIndex = matches.length;
+          while (charIdx < line.length) {
+            if (matches.length >= 1000) {
+              break outerLoopString;
             }
-            // Matches on the cursor position should be ignored
-            if (pos.isEqual(position)) {
+
+            const matchLen = this.isPinyinMatch(
+              line,
+              charIdx,
+              searchStr,
+              !!options.ignorecase,
+              !!options.pinyin,
+            );
+
+            if (matchLen > 0) {
+              const pos = new Position(lineIdx, charIdx);
+
+              if (
+                (options.min && pos.isBefore(options.min)) ||
+                (options.max && pos.isAfter(options.max)) ||
+                Math.abs(pos.line - position.line) > 100
+              ) {
+                charIdx++;
+              } else {
+                if (!prevMatch || prevMatch.position.isBefore(position)) {
+                  cursorIndex = matches.length;
+                }
+                if (pos.isEqual(position)) {
+                  charIdx++;
+                } else {
+                  const matchedText = line.substr(charIdx, matchLen);
+                  prevMatch = new Match(pos, matchedText, matches.length);
+                  matches.push(prevMatch);
+
+                  charIdx += matchLen;
+                }
+              }
+            } else {
+              charIdx++;
+            }
+          }
+        }
+      }
+    } else {
+      // Original regex search mode (unchanged)
+      const regex = search;
+
+      outer: for (let lineIdx = lineMin; lineIdx < lineMax; lineIdx++) {
+        const line = document.lineAt(lineIdx).text;
+        let result = regex.exec(line);
+
+        while (result) {
+          if (matches.length >= 1000) {
+            break outer;
+          } else {
+            const pos = new Position(lineIdx, result.index);
+
+            // Check if match is within bounds
+            if (
+              (options.min && pos.isBefore(options.min)) ||
+              (options.max && pos.isAfter(options.max)) ||
+              Math.abs(pos.line - position.line) > 100
+            ) {
+              // Stop searching after 100 lines in both directions
               result = regex.exec(line);
             } else {
-              prevMatch = new Match(pos, result[0], matches.length);
-              matches.push(prevMatch);
-              result = regex.exec(line);
+              // Update cursor index to the marker on the right side of the cursor
+              if (!prevMatch || prevMatch.position.isBefore(position)) {
+                cursorIndex = matches.length;
+              }
+              // Matches on the cursor position should be ignored
+              if (pos.isEqual(position)) {
+                result = regex.exec(line);
+              } else {
+                prevMatch = new Match(pos, result[0], matches.length);
+                matches.push(prevMatch);
+                result = regex.exec(line);
+              }
             }
           }
         }

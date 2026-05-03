@@ -117,22 +117,14 @@ function getMatchesForString(
         options,
       );
     default:
-      // Search all occurences of the character pressed
-
-      // If the input is not a letter, treating it as regex can cause issues
-      if (!/[a-zA-Z]/.test(searchString)) {
-        return vimState.easyMotion.sortedSearch(vimState.document, position, searchString, options);
-      }
-
+      // Search all occurences of the character pressed, with pinyin support for Chinese characters
       const ignorecase =
         configuration.ignorecase && !(configuration.smartcase && /[A-Z]/.test(searchString));
-      const regexFlags = ignorecase ? 'gi' : 'g';
-      return vimState.easyMotion.sortedSearch(
-        vimState.document,
-        position,
-        new RegExp(searchString, regexFlags),
-        options,
-      );
+      return vimState.easyMotion.sortedSearch(vimState.document, position, searchString, {
+        ...options,
+        ignorecase,
+        pinyin: configuration.easymotionPinyin,
+      });
   }
 }
 
