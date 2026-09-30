@@ -28,19 +28,28 @@ export class TextEditor {
     letVSCodeHandleKeystrokes ??= text.length === 1;
 
     if (!letVSCodeHandleKeystrokes) {
+      const replacedSelections: boolean[] = [];
       await editor.edit((editBuilder) => {
         if (at === undefined) {
           for (const selection of editor.selections) {
             if (selection.isEmpty) {
               editBuilder.insert(selection.active, text);
+              replacedSelections.push(false);
             } else {
               editBuilder.replace(selection, text);
+              replacedSelections.push(true);
             }
           }
         } else {
           editBuilder.insert(at, text);
         }
       });
+      if (replacedSelections.some((replaced) => replaced)) {
+        // Collapse it to a cursor
+        editor.selections = editor.selections.map((selection, i) =>
+          replacedSelections[i] ? new vscode.Selection(selection.end, selection.end) : selection,
+        );
+      }
     } else {
       await vscode.commands.executeCommand('default:type', { text });
     }
