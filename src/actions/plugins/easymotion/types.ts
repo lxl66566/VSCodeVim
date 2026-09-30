@@ -46,11 +46,12 @@ export interface SearchOptions {
    * The minimum bound of the search
    */
   min?: Position;
-
   /**
    * The maximum bound of the search
    */
   max?: Position;
+  ignorecase?: boolean;
+  pinyin?: boolean;
 }
 
 export interface EasyMotionSearchAction {

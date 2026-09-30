@@ -1,3 +1,6 @@
+import { strict as assert } from 'assert';
+
+import { EasyMotion } from '../../src/actions/plugins/easymotion/easymotion';
 import {
   buildTriggerKeys,
   EasymotionTrigger,
@@ -8,6 +11,46 @@ import { setupWorkspace } from './../testUtils';
 function easymotionCommand(trigger: EasymotionTrigger, searchWord: string, jumpKey: string) {
   return [...buildTriggerKeys(trigger), searchWord, jumpKey].join('');
 }
+
+suite('easymotion isPinyinMatch', () => {
+  const em = new EasyMotion();
+  /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+  const match = (line: string, index: number, search: string, pinyin = true, ignorecase = true) =>
+    (em as any).isPinyinMatch(line, index, search, ignorecase, pinyin);
+  /* eslint-enable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+
+  test('direct character match returns match length', () => {
+    assert.strictEqual(match('abc', 0, 'a'), 1);
+    assert.strictEqual(match('abc', 1, 'bc'), 2);
+  });
+
+  test('no match returns 0', () => {
+    assert.strictEqual(match('abc', 0, 'x'), 0);
+  });
+
+  test('case-insensitive match', () => {
+    assert.strictEqual(match('AbC', 0, 'a', true, true), 1);
+    assert.strictEqual(match('AbC', 0, 'a', true, false), 0);
+  });
+
+  test('pinyin first-letter match for Chinese character', () => {
+    assert.strictEqual(match('你好', 0, 'n'), 1);
+    assert.strictEqual(match('你好', 1, 'h'), 1);
+  });
+
+  test('pinyin disabled returns 0 for Chinese characters', () => {
+    assert.strictEqual(match('你好', 0, 'n', false), 0);
+  });
+
+  test('mixed Chinese and ASCII match', () => {
+    assert.strictEqual(match('a你好b', 0, 'an'), 2);
+    assert.strictEqual(match('a你好b', 1, 'nh'), 2);
+  });
+
+  test('index out of bounds returns 0', () => {
+    assert.strictEqual(match('ab', 2, 'a'), 0);
+  });
+});
 
 suite('easymotion plugin', () => {
   suiteSetup(async () => {

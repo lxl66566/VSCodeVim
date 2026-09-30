@@ -47,6 +47,7 @@ export class Configuration implements IConfiguration {
   easymotionDimBackground = true;
   easymotionMarkerFontWeight = 'bold';
   easymotionKeys = 'hklyuiopnm,qwertzxcvbasdgjf;';
+  easymotionPinyin = false;
   easymotionJumpToAnywhereRegex = '\\b[A-Za-z0-9]|[A-Za-z0-9]\\b|_.|#.|[a-z][A-Z]';
 
   targets: ITargetsConfiguration = {
