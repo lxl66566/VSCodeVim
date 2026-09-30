@@ -35,7 +35,6 @@
   "extensionKind": [
     "ui"
   ],
-  "sideEffects": false,
   "activationEvents": [
     "onStartupFinished",
     "onCommand:type"
