@@ -29,11 +29,13 @@ export class TextEditor {
 
     if (!letVSCodeHandleKeystrokes) {
       await editor.edit((editBuilder) => {
-        if (!at) {
-          if (editor.selection.isEmpty) {
-            editBuilder.insert(editor.selection.active, text);
-          } else {
-            editBuilder.replace(editor.selection, text);
+        if (at === undefined) {
+          for (const selection of editor.selections) {
+            if (selection.isEmpty) {
+              editBuilder.insert(selection.active, text);
+            } else {
+              editBuilder.replace(selection, text);
+            }
           }
         } else {
           editBuilder.insert(at, text);
