@@ -318,17 +318,27 @@ export async function activate(context: vscode.ExtensionContext, handleLocal: bo
 
   const compositionState = new CompositionState();
 
+  // Chromium can dispatch a single IME commit through overlapping input events,
+  // both yielding the same `type` payload. Drop duplicates within a short window.
+  let lastTypePayload: { text: string; time: number } | undefined;
+
   // Override VSCode commands
   overrideCommand(context, 'type', async (args: { text: string }) => {
+    const now = Date.now();
+    if (lastTypePayload && lastTypePayload.text === args.text && now - lastTypePayload.time < 10) {
+      return;
+    }
+    lastTypePayload = { text: args.text, time: now };
     taskQueue.enqueueTask(async () => {
       const mh = await getAndUpdateModeHandler();
       if (mh) {
         if (compositionState.isInComposition) {
+          // Do not echo the text into the buffer: an instant IME commit (e.g. a
+          // punctuation key) arrives as a compositionStart -> type -> compositionEnd
+          // burst, and echoing here would be deleted and re-typed again by the
+          // `compositionEnd` handler, duplicating the input. `compositionEnd`
+          // replays `composingText` through normal key handling instead.
           compositionState.composingText += args.text;
-          if (mh.vimState.currentMode === Mode.Insert) {
-            compositionState.insertedText = true;
-            void vscode.commands.executeCommand('default:type', { text: args.text });
-          }
         } else {
           await mh.handleKeyEvent(args.text);
         }
