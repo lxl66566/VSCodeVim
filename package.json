@@ -1,9 +1,9 @@
 {
-  "name": "vim-lxl66566",
-  "displayName": "Vim-lxl66566",
-  "description": "VSCodeVim fork with Chinese optimize",
+  "name": "vim2-lxl66566",
+  "displayName": "Vim-CN-lxl66566",
+  "description": "VSCodeVim fork with bug fixes and Chinese optimization",
   "icon": "images/icon.png",
-  "version": "1.32.5",
+  "version": "2.0.0",
   "publisher": "lxl66566",
   "galleryBanner": {
     "color": "#e3f4ff",
